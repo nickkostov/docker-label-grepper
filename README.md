@@ -10,7 +10,7 @@ Created by **@nickkkostov**
 
 ```yaml
 - name: Get latest GHCR tag
-  uses: your-org-or-username/get-latest-ghcr-tag@v1
+  uses: nickkostov/get-latest-ghcr-tag@v1
   id: latest
   with:
     image: my-container
