@@ -1,0 +1,44 @@
+name: "Get Latest GHCR Tag"
+description: "Fetches the latest GHCR tag matching a provided identifier (e.g., 'prod') using gh CLI"
+author: nickkkostov
+inputs:
+  identity:
+    description: "GitHub user or org owning the image"
+    required: true
+  image:
+    description: "Image name in GHCR"
+    required: true
+  image_identifier:
+    description: "Substring to identify your production-grade tags (e.g., 'prod')"
+    required: true
+outputs:
+  latest_tag:
+    description: "The latest matching tag from GHCR"
+runs:
+  using: "composite"
+  steps:
+    - name: Install GitHub CLI
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gh jq
+
+    - name: Authenticate GitHub CLI
+      shell: bash
+      run: echo "${{ github.token }}" | gh auth login --with-token
+
+    - name: Get latest matching tag
+      id: get-latest
+      shell: bash
+      run: |
+        IMAGE="ghcr.io/${{ inputs.identity }}/${{ inputs.image }}"
+        tags=$(gh api "users/${{ inputs.identity }}/packages/container/${{ inputs.image }}/versions" \
+          --paginate \
+          --jq '.[].metadata.container.tags[]')
+
+        matched_tags=$(echo "$tags" | grep "${{ inputs.image_identifier }}" | sort -V)
+        latest=$(echo "$matched_tags" | tail -n1)
+        echo "latest_tag=$latest" >> "$GITHUB_OUTPUT"
+branding:
+  icon: "tag"
+  color: "blue"
