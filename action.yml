@@ -1,44 +1,92 @@
 name: "Get Latest GHCR Tag"
-description: "Fetches the latest GHCR tag matching a provided identifier (e.g., 'prod') using gh CLI"
+description: "Fetches the latest GHCR tag matching a provided identifier using gh CLI"
 author: nickkkostov
+
 inputs:
-  identity:
-    description: "GitHub user or org owning the image"
-    required: true
+  org:
+    description: "GitHub organization owning the image (optional)"
+    required: false
+  user:
+    description: "GitHub user owning the image (optional)"
+    required: false
   image:
     description: "Image name in GHCR"
     required: true
   image_identifier:
     description: "Substring to identify your production-grade tags (e.g., 'prod')"
     required: true
+  gh_token:
+    description: "GitHub token for authentication"
+    required: true
+
 outputs:
   latest_tag:
     description: "The latest matching tag from GHCR"
+    value: ${{ steps.get-latest.outputs.latest_tag }}
+
 runs:
   using: "composite"
   steps:
-    - name: Install GitHub CLI
+    - name: Ensure GitHub CLI and jq are installed
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt-get install -y gh jq
+        if ! command -v gh &>/dev/null; then
+          sudo apt-get update
+          sudo apt-get install -y gh
+        fi
+        if ! command -v jq &>/dev/null; then
+          sudo apt-get update
+          sudo apt-get install -y jq
+        fi
 
     - name: Authenticate GitHub CLI
       shell: bash
-      run: echo "${{ github.token }}" | gh auth login --with-token
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+      run: |
+        echo "🔐 Authenticating gh CLI..."
+        gh auth status || (echo "❌ Authentication failed" && exit 1)
 
-    - name: Get latest matching tag
+    - name: Fetch latest matching tag
       id: get-latest
       shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+        IMAGE_NAME: ${{ inputs.image }}
+        IDENTIFIER: ${{ inputs.image_identifier }}
+        GH_ORG: ${{ inputs.org }}
+        GH_USER: ${{ inputs.user }}
       run: |
-        IMAGE="ghcr.io/${{ inputs.identity }}/${{ inputs.image }}"
-        tags=$(gh api "users/${{ inputs.identity }}/packages/container/${{ inputs.image }}/versions" \
+        if [[ -z "$GH_ORG" && -z "$GH_USER" ]]; then
+          echo "❌ You must provide either 'org' or 'user' input."
+          exit 1
+        fi
+
+        if [[ -n "$GH_ORG" ]]; then
+          echo "🔍 Querying organization: $GH_ORG"
+          API_PATH="orgs/$GH_ORG"
+          IMAGE="ghcr.io/$GH_ORG/$IMAGE_NAME"
+        else
+          echo "🔍 Querying user: $GH_USER"
+          API_PATH="users/$GH_USER"
+          IMAGE="ghcr.io/$GH_USER/$IMAGE_NAME"
+        fi
+
+        echo "📦 Full image path: $IMAGE"
+
+        tags=$(gh api "$API_PATH/packages/container/$IMAGE_NAME/versions" \
           --paginate \
           --jq '.[].metadata.container.tags[]')
 
-        matched_tags=$(echo "$tags" | grep "${{ inputs.image_identifier }}" | sort -V)
+        echo "📦 Tags fetched:"
+        echo "$tags"
+
+        matched_tags=$(echo "$tags" | grep "$IDENTIFIER" | sort -V)
         latest=$(echo "$matched_tags" | tail -n1)
+
+        echo "🆕 Latest matching tag: $latest"
         echo "latest_tag=$latest" >> "$GITHUB_OUTPUT"
+
 branding:
   icon: "tag"
-  color: "blue"
+  color: "red"
