@@ -1,116 +1,97 @@
-# 🔖 docker-label-grepper
+# 🚀 Get Latest GHCR Tag
 
-**Get the latest Docker image tag from GitHub Container Registry (GHCR) that matches a specific label or pattern**  
-This GitHub Action uses the GitHub CLI (`gh`) to fetch and sort tags, helping you automatically detect your latest `prod`, `stable`, or other tagged builds.
+Fetches the **latest tag** of a [GitHub Container Registry (GHCR)](https://ghcr.io) image that matches a given identifier, using the GitHub CLI.
+
+Created by **@nickkkostov**
 
 ---
 
-## 📥 Inputs
+## 📦 Usage
 
-| Name              | Description                                                         | Required |
-|-------------------|---------------------------------------------------------------------|----------|
-| `identity`         | GitHub username or organization that owns the image (`my-org`)      | ✅ Yes    |
-| `image`            | GHCR image name (`my-app`)                                          | ✅ Yes    |
-| `image_identifier` | A label or substring to match tags against (e.g., `prod`, `stable`) | ✅ Yes    |
+```yaml
+- name: Get latest GHCR tag
+  uses: your-org-or-username/get-latest-ghcr-tag@v1
+  id: latest
+  with:
+    image: my-container
+    image_identifier: prod
+    gh_token: ${{ secrets.GITHUB_TOKEN }}
+    org: my-org             # optional
+    # user: my-username     # optional
+```
+
+```yaml
+# Use the output
+- name: Print latest tag
+  run: echo "Latest tag is: ${{ steps.latest.outputs.latest_tag }}"
+```
+
+---
+
+## 🔧 Inputs
+
+| Name              | Required | Description                                                                 |
+|-------------------|----------|-----------------------------------------------------------------------------|
+| `image`           | ✅       | The name of the GHCR container image                                       |
+| `image_identifier`| ✅       | A substring used to match relevant tags (e.g., `prod`, `stable`, etc.)     |
+| `gh_token`        | ✅       | GitHub token for authentication (use `${{ secrets.GITHUB_TOKEN }}`)        |
+| `org`             | ❌       | GitHub organization owning the image (if applicable)                       |
+| `user`            | ❌       | GitHub user owning the image (if applicable)                               |
+
+> ❗ You **must provide either** `org` or `user`.
 
 ---
 
 ## 📤 Outputs
 
-| Name         | Description                                  |
-|--------------|----------------------------------------------|
-| `latest_tag` | The most recent tag matching your identifier |
+| Name         | Description                             |
+|--------------|-----------------------------------------|
+| `latest_tag` | The latest tag matching the identifier  |
 
 ---
 
-## 🚀 Example Usage
+## 🧪 Example
 
+If your GHCR repo has the following tags:
+```
+latest, dev-2024.01, prod-2024.03, prod-2024.05
+```
+
+With:
 ```yaml
-jobs:
-  get-latest-tag:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: your-org/docker-label-grepper@v1
-        id: ghcr
-        with:
-          identity: your-org
-          image: your-image
-          image_identifier: prod
+image_identifier: prod
+```
 
-      - name: Use the tag
-        run: echo "Latest prod tag is: ${{ steps.ghcr.outputs.latest_tag }}"
+Output will be:
+```
+prod-2024.05
 ```
 
 ---
 
-## ✅ Requirements
+## 🔐 Permissions
 
-- Uses [GitHub CLI](https://cli.github.com/) (`gh`) and `jq`
-- Requires no secrets — uses the built-in `GITHUB_TOKEN`
-
----
-
-## 🧠 How It Works
-
-1. Fetches all versions of the GHCR image via the GitHub API
-2. Filters tags that match your `image_identifier`
-3. Sorts them semantically (e.g., `1.0.0-prod`, `1.1.0-prod`)
-4. Returns the latest one as `latest_tag`
+Ensure your GitHub token has at least `read:packages` permission to access GHCR metadata.
 
 ---
 
-## 📦 Example Image Structure
+## 🛠 How it works
 
-This action targets images hosted at:
-
-```
-ghcr.io/<identity>/<image>
-```
-
-For example:
-
-```
-ghcr.io/my-org/my-api-service
-```
+1. Installs `gh` and `jq` if needed.
+2. Authenticates using the provided token.
+3. Queries the `orgs/` or `users/` endpoint for container versions.
+4. Filters tags by substring match and returns the latest (sorted semantically).
 
 ---
 
-## 📚 Full Example With Docker Deployment
+## 🖼 Branding
 
-```yaml
-name: Deploy using latest prod tag
-
-on:
-  workflow_dispatch:
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: your-org/docker-label-grepper@v1
-        id: tagger
-        with:
-          identity: your-org
-          image: my-app
-          image_identifier: prod
-
-      - name: Pull Docker image
-        run: |
-          docker pull ghcr.io/your-org/my-app:${{ steps.tagger.outputs.latest_tag }}
-
-      - name: Deploy container
-        run: |
-          docker run -d ghcr.io/your-org/my-app:${{ steps.tagger.outputs.latest_tag }}
-```
+| Icon | Color |
+|------|--------|
+| `tag` | `red` |
 
 ---
 
-## 🧑‍💻 Maintainer
+## 📜 License
 
-Made with ❤️ by [your-org](https://github.com/your-org)
-
----
-
-## 📄 License
-
-[MIT](LICENSE)
+MIT – feel free to use and contribute!
